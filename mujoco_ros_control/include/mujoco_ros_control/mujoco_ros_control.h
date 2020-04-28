@@ -123,7 +123,7 @@ protected:
   std::string robot_namespace_;
   std::string robot_description_param_;
   std::string robot_model_path_;
-  std::string key_path_ = "/home/user/mjpro150/bin/mjkey.txt";
+  std::string key_path_ = getenv("MUJOCO_KEY_PATH");
 
   // vectors
   std::vector<int> mujoco_ids;

@@ -41,8 +41,13 @@ catkin_package(
 include_directories( include
  ${Boost_INCLUDE_DIR}
  ${catkin_INCLUDE_DIRS}
- /home/user/mjpro150/include
 )
+
+## include mujoco using env variable.
+include_directories($ENV{MUJOCO_PRO_PATH}/include)
+
+## find libmujoco
+file(GLOB LIB_MUJOCO $ENV{MUJOCO_PRO_PATH}/bin/libmujoco[0-9][0-9][0-9].so)
 
 roslint_cpp()
 
@@ -54,4 +59,14 @@ target_link_libraries(visualization_utils ${catkin_LIBRARIES})
 
 ## Declare a C++ library
 add_executable(mujoco_ros_control src/mujoco_ros_control.cpp)
-target_link_libraries(mujoco_ros_control ${catkin_LIBRARIES} glfw /home/user/mjpro150/bin/libmujoco150.so robot_hw_sim visualization_utils GLEW glut X11 GL GLU)
+target_link_libraries(mujoco_ros_control
+    ${catkin_LIBRARIES}
+    glfw
+    ${LIB_MUJOCO}
+    robot_hw_sim
+    visualization_utils
+    GLEW
+    glut
+    X11
+    GL
+    GLU)
