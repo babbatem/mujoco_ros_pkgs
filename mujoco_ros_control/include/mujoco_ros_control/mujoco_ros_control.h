@@ -50,6 +50,7 @@
 #include "geometry_msgs/Pose.h"
 #include "std_msgs/Float64MultiArray.h"
 #include "mujoco_ros_msgs/ModelStates.h"
+#include "sensor_msgs/Image.h"
 
 #include <controller_manager/controller_manager.h>
 #include <transmission_interface/transmission_parser.h>
@@ -110,6 +111,9 @@ protected:
   // publish free objects
   void publish_objects_in_scene();
 
+  // publish depth image
+  void publish_depth_image();
+
   // transform type id to type name
   std::string geom_type_to_string(int geom_id);
 
@@ -153,6 +157,12 @@ protected:
   // publishing
   ros::Publisher objects_in_scene_publisher = robot_node_handle.advertise<mujoco_ros_msgs::ModelStates>
                                                                          ("/mujoco/model_states", 1000);
+  // depth image publishing
+  ros::Publisher pub_depth_;
+  ros::Time last_pub_depth_time_;
+  int pub_depth_freq_=100;
+  int height=32;
+  int width=32;
 };
 }  // namespace mujoco_ros_control
 #endif  // MUJOCO_ROS_CONTROL_MUJOCO_ROS_CONTROL_H

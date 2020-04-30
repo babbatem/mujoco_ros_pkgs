@@ -28,6 +28,9 @@
 #include <map>
 #include <algorithm>
 
+mujoco_ros_control::MujocoVisualizationUtils &mujoco_visualization_utils =
+    mujoco_ros_control::MujocoVisualizationUtils::getInstance();
+
 namespace mujoco_ros_control
 {
 MujocoRosControl::MujocoRosControl()
@@ -68,6 +71,9 @@ bool MujocoRosControl::init(ros::NodeHandle &nodehandle)
 
     // publish clock for simulated time
     pub_clock_ = nodehandle.advertise<rosgraph_msgs::Clock>("/clock", 10);
+
+    // depth_pub_ definition
+    pub_depth_ = nodehandle.advertise<sensor_msgs::Image>("/depth", 10);
 
     // create robot node handle
     robot_node_handle = ros::NodeHandle("/");
@@ -262,6 +268,8 @@ void MujocoRosControl::update()
   mj_step2(mujoco_model, mujoco_data);
 
   publish_objects_in_scene();
+
+  publish_depth_image();
 }
 
 // get the URDF XML from the parameter server
@@ -346,8 +354,8 @@ void MujocoRosControl::get_number_of_dofs()
 void MujocoRosControl::publish_sim_time()
 {
   ros::Time sim_time = (ros::Time)mujoco_data->time;
-  if (pub_clock_frequency_ > 0 && (sim_time - last_pub_clock_time_).toSec() < 1.0/pub_clock_frequency_)
-    return;
+  // if (pub_clock_frequency_ > 0 && (sim_time - last_pub_clock_time_).toSec() < 1.0/pub_clock_frequency_)
+  //   return;
 
   ros::Time current_time = (ros::Time)mujoco_data->time;
   rosgraph_msgs::Clock ros_time_;
@@ -355,6 +363,48 @@ void MujocoRosControl::publish_sim_time()
   // publish time to ros
   last_pub_clock_time_ = sim_time;
   pub_clock_.publish(ros_time_);
+}
+
+void MujocoRosControl::publish_depth_image()
+{
+  // ros::Time sim_time = (ros::Time)mujoco_data->time;
+  // if (pub_depth_freq_ > 0 && (sim_time - last_pub_depth_time_).toSec() < 1.0/pub_depth_freq_)
+  //   return;
+
+  ROS_INFO("pre-malloc okay");
+  unsigned char* rgb = (unsigned char*)malloc(3*width*height);
+  float* depth = (float*)malloc(width*height);
+  if( !rgb | !depth)
+    ROS_ERROR("Could not allocate buffers");
+  ROS_INFO("malloc okay");
+  // ROS_INFO("control side okay");
+  int result = mujoco_visualization_utils.renderOffscreen(rgb, depth, height, width);
+  ROS_INFO("%i",result);
+  //
+  // // DEBUGGING
+  // return;
+
+  // form the message
+  sensor_msgs::Image output_image;
+  output_image.header.stamp = ros::Time::now();
+  output_image.height = height;
+  output_image.width = width;
+  output_image.encoding = "rgb8";
+  output_image.is_bigendian = false;
+  output_image.step = 3 * height;
+
+  // for(int i=0; i<(width*height);i++)
+  // {
+  //      output_image.data.push_back(uint8_pointer_red[i]);
+  //      output_image.data.push_back(uint8_pointer_green[i]);
+  //      output_image.data.push_back(uint8_pointer_blue[i]);
+  // }
+  //
+
+  ROS_INFO("output_image.width = %d", output_image.width);
+
+  // publish
+  // pub_depth_.publish(depth);
 }
 
 void MujocoRosControl::check_objects_in_scene()
@@ -438,9 +488,6 @@ int main(int argc, char** argv)
     ros::NodeHandle nh_;
 
     mujoco_ros_control::MujocoRosControl mujoco_ros_control;
-
-    mujoco_ros_control::MujocoVisualizationUtils &mujoco_visualization_utils =
-        mujoco_ros_control::MujocoVisualizationUtils::getInstance();
 
     // initialize mujoco stuff
     if (!mujoco_ros_control.init(nh_))

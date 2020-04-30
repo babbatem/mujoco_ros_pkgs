@@ -119,6 +119,35 @@ void MujocoVisualizationUtils::terminate()
   glfwTerminate();
 }
 
+//get buffer from mujoco
+// typedef struct state_t {
+//   mjModel *m;
+//   mjData *d;
+//   mjvScene scn;
+//   mjrContext con;
+//   mjvCamera cam;
+//   mjvOption opt;
+//   } State;
+
+int MujocoVisualizationUtils::renderOffscreen(unsigned char *rgb,
+                                              float* depth,
+                                              int height,
+                                              int width)
+{
+    mjrRect viewport = {0, 0, height, width};
+
+    ROS_INFO("here I am");
+
+    // write offscreen-rendered pixels to file
+    mjr_setBuffer(mjFB_OFFSCREEN, &con);
+    if (con.currentBuffer != mjFB_OFFSCREEN)
+        ROS_WARN
+            ("Warning: offscreen rendering not supported, using default/window framebuffer\n");
+    mjr_render(viewport, &scn, &con);
+    mjr_readPixels(rgb, depth, viewport, &con);
+    return 0;
+}
+
 void MujocoVisualizationUtils::keyboard_callback(GLFWwindow* window, int key, int scancode, int act, int mods)
 {
   getInstance().keyboard_cb_implementation(window, key, scancode, act, mods);
