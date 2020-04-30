@@ -279,55 +279,16 @@ void RobotHWSim::write(const ros::Time& time, const ros::Duration& period)
 
   for (auto& actuator : mujoco_actuators_)
   {
-    if (string_ends_with(actuator.first, "FJ0"))
-    {
-      std::string joint_1_name = actuator.first;
-      std::string joint_2_name = actuator.first;
-      joint_1_name[joint_1_name.size() - 1] = '1';
-      joint_2_name[joint_2_name.size() - 1] = '2';
-      JointData& joint_1 = joints_.at(joint_1_name);
-      JointData& joint_2 = joints_.at(joint_2_name);
-      switch (joint_1.control_method)
-      {
-        case EFFORT:
-        {
-          mujoco_data_->ctrl[actuator.second.id] = joint_1.effort_command + joint_2.effort_command;
-          break;
-        }
 
-        case POSITION:
-          mujoco_data_->ctrl[actuator.second.id] = joint_1.position_command + joint_2.position_command;
-          break;
+    // std::cout << "actuator.first: " << actuator.first << "\n";
 
-        case POSITION_PID:
-        {
-          mujoco_data_->ctrl[actuator.second.id] =
-            clamp(joint_1.pid_controller.computeCommand(joint_1.position_command - joint_1.position, period),
-                  -joint_1.effort_limit, joint_1.effort_limit) +
-            clamp(joint_2.pid_controller.computeCommand(joint_2.position_command - joint_2.position, period),
-                  -joint_2.effort_limit, joint_2.effort_limit);
-          break;
-        }
-
-        case VELOCITY:
-          mujoco_data_->ctrl[actuator.second.id] = joint_1.velocity_command + joint_2.velocity_command;
-          break;
-
-        case VELOCITY_PID:
-          mujoco_data_->ctrl[actuator.second.id] =
-            clamp(joint_1.pid_controller.computeCommand(joint_1.velocity_command - joint_1.velocity, period),
-                  -joint_1.effort_limit, joint_1.effort_limit) +
-            clamp(joint_2.pid_controller.computeCommand(joint_2.velocity_command - joint_2.velocity, period),
-                  -joint_2.effort_limit, joint_2.effort_limit);
-          break;
-      }
-      continue;
-    }
     for (auto& joint_item : joints_)
     {
       JointData& joint = joint_item.second;
+      // std::cout << "joint.name: " << joint.name << "\n";
       if ( actuator.first == joint.name)
       {
+
         switch (joint.control_method)
         {
           case EFFORT:
