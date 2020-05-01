@@ -160,7 +160,7 @@ protected:
   // depth image publishing
   ros::Publisher pub_depth_;
   ros::Time last_pub_depth_time_;
-  int pub_depth_freq_=100;
+  float pub_depth_freq_=30.0;
   int height=32;
   int width=32;
 };

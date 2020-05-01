@@ -367,22 +367,16 @@ void MujocoRosControl::publish_sim_time()
 
 void MujocoRosControl::publish_depth_image()
 {
-  // ros::Time sim_time = (ros::Time)mujoco_data->time;
-  // if (pub_depth_freq_ > 0 && (sim_time - last_pub_depth_time_).toSec() < 1.0/pub_depth_freq_)
-  //   return;
+  ros::Time sim_time = (ros::Time)mujoco_data->time;
+  if (pub_depth_freq_ > 0 && (sim_time - last_pub_depth_time_).toSec() < 1.0/pub_depth_freq_)
+    return;
 
-  ROS_INFO("pre-malloc okay");
   unsigned char* rgb = (unsigned char*)malloc(3*width*height);
-  float* depth = (float*)malloc(width*height);
+  float* depth = (float*)malloc(width*height*sizeof(float));
   if( !rgb | !depth)
     ROS_ERROR("Could not allocate buffers");
-  ROS_INFO("malloc okay");
-  // ROS_INFO("control side okay");
+
   int result = mujoco_visualization_utils.renderOffscreen(rgb, depth, height, width);
-  ROS_INFO("%i",result);
-  //
-  // // DEBUGGING
-  // return;
 
   // form the message
   sensor_msgs::Image output_image;
@@ -392,6 +386,14 @@ void MujocoRosControl::publish_depth_image()
   output_image.encoding = "rgb8";
   output_image.is_bigendian = false;
   output_image.step = 3 * height;
+  for(int i=0; i<(3*width*height);i++)
+  {
+       output_image.data.push_back(rgb[i]);
+  }
+
+  // publish!
+  last_pub_depth_time_ = sim_time;
+  pub_depth_.publish(output_image);
 
   // for(int i=0; i<(width*height);i++)
   // {
@@ -400,11 +402,12 @@ void MujocoRosControl::publish_depth_image()
   //      output_image.data.push_back(uint8_pointer_blue[i]);
   // }
   //
-
-  ROS_INFO("output_image.width = %d", output_image.width);
-
+  // ROS_INFO("output_image.width = %d", output_image.width);
   // publish
   // pub_depth_.publish(depth);
+
+  // TODO: publish tf here!
+  // TODO: lookat?? merge clouds? wrist mount??
 }
 
 void MujocoRosControl::check_objects_in_scene()

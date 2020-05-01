@@ -134,18 +134,28 @@ int MujocoVisualizationUtils::renderOffscreen(unsigned char *rgb,
                                               int height,
                                               int width)
 {
-    mjrRect viewport = {0, 0, height, width};
+  // grab camera 0 in the model.
+  cam.type = mjCAMERA_FIXED;
+  cam.fixedcamid = 0;
+  mjrRect my_viewport = {0, 0, height, width};
 
-    ROS_INFO("here I am");
+  // setBuffer offscreen
+  mjr_setBuffer(mjFB_OFFSCREEN, &con);
+  if (con.currentBuffer != mjFB_OFFSCREEN)
+      ROS_WARN("Warning: offscreen rendering not supported, using default/window framebuffer\n");
 
-    // write offscreen-rendered pixels to file
-    mjr_setBuffer(mjFB_OFFSCREEN, &con);
-    if (con.currentBuffer != mjFB_OFFSCREEN)
-        ROS_WARN
-            ("Warning: offscreen rendering not supported, using default/window framebuffer\n");
-    mjr_render(viewport, &scn, &con);
-    mjr_readPixels(rgb, depth, viewport, &con);
-    return 0;
+  // update, render, readPixels
+  mjv_updateScene(mujoco_model_, mujoco_data_, &opt, NULL, &cam, mjCAT_ALL, &scn);
+  mjr_render(my_viewport, &scn, &con);
+  mjr_readPixels(rgb, depth, my_viewport, &con);
+
+  // set cam back to default for rendering
+  // mjv_defaultCamera(&cam);
+  cam.type = mjCAMERA_FREE;
+  cam.fixedcamid = -1;
+  mjr_setBuffer(mjFB_WINDOW, &con);
+  return 0;
+
 }
 
 void MujocoVisualizationUtils::keyboard_callback(GLFWwindow* window, int key, int scancode, int act, int mods)
