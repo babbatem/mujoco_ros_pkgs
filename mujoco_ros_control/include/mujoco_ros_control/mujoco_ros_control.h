@@ -161,8 +161,8 @@ protected:
   ros::Publisher pub_depth_;
   ros::Time last_pub_depth_time_;
   float pub_depth_freq_=30.0;
-  int height=32;
-  int width=32;
+  int height=256;
+  int width=256;
 };
 }  // namespace mujoco_ros_control
 #endif  // MUJOCO_ROS_CONTROL_MUJOCO_ROS_CONTROL_H

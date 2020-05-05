@@ -378,17 +378,34 @@ void MujocoRosControl::publish_depth_image()
 
   int result = mujoco_visualization_utils.renderOffscreen(rgb, depth, height, width);
 
+  // TODO: change camera pose. using lookat??
+
+  // TODO: reverse depth order
+
+  // TODO: convert buffer float to real depth (not yet. )
+
   // form the message
   sensor_msgs::Image output_image;
   output_image.header.stamp = ros::Time::now();
   output_image.height = height;
   output_image.width = width;
-  output_image.encoding = "rgb8";
+  output_image.encoding = "mono8";
   output_image.is_bigendian = false;
   output_image.step = 3 * height;
-  for(int i=0; i<(3*width*height);i++)
+  for(int i=0; i<(width*height);i++)
   {
-       output_image.data.push_back(rgb[i]);
+      // from gl docs, this buffer is bottom to top, left to right.
+      // so the ith pixel in output_image.data should be
+      int proper_row_number = std::floor( ((float)i) / ((float)width) );
+      int proper_column_number = i - proper_row_number*width;
+      int gl_row_number = height - proper_row_number;
+      int proper_idx = gl_row_number*width + proper_column_number;
+
+      // reverse depth buffer and convert from float in [0,1] to [0,255]
+      // int depth_8bit = (int) (depth[ width*height - i]*255);
+      int depth_8bit = (int) (depth[proper_idx]*255);
+      output_image.data.push_back(depth_8bit);
+
   }
 
   // publish!
@@ -406,6 +423,7 @@ void MujocoRosControl::publish_depth_image()
   // publish
   // pub_depth_.publish(depth);
 
+  // TODO: encoding
   // TODO: publish tf here!
   // TODO: lookat?? merge clouds? wrist mount??
 }
