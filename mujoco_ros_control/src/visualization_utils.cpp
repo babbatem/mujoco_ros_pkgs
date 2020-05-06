@@ -135,9 +135,10 @@ int MujocoVisualizationUtils::renderOffscreen(unsigned char *rgb,
                                               int width)
 {
   // grab camera 0 in the model.
+  // todo: is this viewport proper?
   cam.type = mjCAMERA_FIXED;
   cam.fixedcamid = 0;
-  mjrRect my_viewport = {0, 0, height, width};
+  mjrRect my_viewport = {0, 0, width, height};
 
   // setBuffer offscreen
   mjr_setBuffer(mjFB_OFFSCREEN, &con);
