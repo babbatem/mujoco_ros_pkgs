@@ -20,6 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
   urdf
   mujoco_ros_msgs
   roslint
+  tf
 )
 
 catkin_package(
@@ -33,6 +34,7 @@ catkin_package(
     transmission_interface
     joint_limits_interface
     urdf
+    tf
   INCLUDE_DIRS include
   LIBRARIES ${PROJECT_NAME} robot_hw_sim
 )

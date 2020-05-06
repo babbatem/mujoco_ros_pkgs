@@ -51,6 +51,8 @@
 #include "std_msgs/Float64MultiArray.h"
 #include "mujoco_ros_msgs/ModelStates.h"
 #include "sensor_msgs/Image.h"
+#include "sensor_msgs/CameraInfo.h"
+#include "sensor_msgs/image_encodings.h"
 
 #include <controller_manager/controller_manager.h>
 #include <transmission_interface/transmission_parser.h>
@@ -159,10 +161,11 @@ protected:
                                                                          ("/mujoco/model_states", 1000);
   // depth image publishing
   ros::Publisher pub_depth_;
+  ros::Publisher pub_cam_info_;
   ros::Time last_pub_depth_time_;
   float pub_depth_freq_=30.0;
-  int height=256;
-  int width=256;
+  int height=108;
+  int width=192;
 };
 }  // namespace mujoco_ros_control
 #endif  // MUJOCO_ROS_CONTROL_MUJOCO_ROS_CONTROL_H
