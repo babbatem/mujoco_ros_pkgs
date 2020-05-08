@@ -493,10 +493,45 @@ void MujocoRosControl::publish_depth_image()
   static tf::TransformBroadcaster br;
   tf::Transform transform;
   transform.setOrigin( tf::Vector3(cam_x, cam_y, cam_z) );
-  tf::Quaternion q;
-  q.setRPY(cam_roll, cam_pitch, cam_yaw);
+
+  // why isn't this working?
+  // mj_name2id(const mjModel* m, int type, const char* name)
+  // int start_idx = mj_name2id(mujoco_model, 0, "cam_1_body") * 4;
+
+  // alright kiddo, here's the shitty news
+  // the convention depth_image_proc uses is: points down the *positive* z-axis.
+  // where GL computes them down the *negative* z-axis.
+  // so, I don't want the actual camera pose;
+  // I want to rotate it (about itself?!) such that that z is the opposite way.
+  // a better idea: put the pointcloud in optical frame, and publish optical_frame tf from cam_1 frame. 
+
+
+  // grab camera quat
+  int start_idx = (mujoco_model->nbody - 1) * 4;
+  std::cout << "=========================" << "\n";
+  std::cout << start_idx << "\n";
+  float qw = mujoco_data->xquat[start_idx + 0];
+  float qx = mujoco_data->xquat[start_idx + 1];
+  float qy = mujoco_data->xquat[start_idx + 2];
+  float qz = mujoco_data->xquat[start_idx + 3];
+  tf::Quaternion q(qx, qy, qz, qw );
+  q.normalize();
   transform.setRotation(q);
-  br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "cam_1", "world"));
+  br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", "cam_1"));
+
+  // testing quaternions
+  std::cout << "ROS: " << "\n";
+  std::cout << q[0] << "\n";
+  std::cout << q[1] << "\n";
+  std::cout << q[2] << "\n";
+  std::cout << q[3] << "\n";
+
+  // int start_idx = (mujoco_model->nbody - 1) * 4;
+  std::cout << "MuJoCo: " << "\n";
+  std::cout << mujoco_data->xquat[start_idx + 0] << "\n";
+  std::cout << mujoco_data->xquat[start_idx + 1] << "\n";
+  std::cout << mujoco_data->xquat[start_idx + 2] << "\n";
+  std::cout << mujoco_data->xquat[start_idx + 3] << "\n";
 }
 
 void MujocoRosControl::check_objects_in_scene()
