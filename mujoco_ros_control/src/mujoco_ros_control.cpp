@@ -30,9 +30,10 @@
 #include <math.h>
 #include <tf/transform_broadcaster.h>
 
-mujoco_ros_control::MujocoVisualizationUtils &mujoco_visualization_utils =
+mujoco_ros_control::MujocoVisualizationUtils &mj_vis_utils =
     mujoco_ros_control::MujocoVisualizationUtils::getInstance();
 
+namespace enc = sensor_msgs::image_encodings;
 namespace mujoco_ros_control
 {
 MujocoRosControl::MujocoRosControl()
@@ -372,127 +373,130 @@ void MujocoRosControl::publish_sim_time()
   pub_clock_.publish(ros_time_);
 }
 
+// alternatively:
+// def buffer_to_real(z, zzfar, zznear):
+//     return 2*zzfar*zznear / (zzfar + zznear - (zzfar - zznear)*(2*z -1))
+
 void MujocoRosControl::publish_depth_image()
 {
+  // if it isn't time, exit
   ros::Time sim_time = (ros::Time)mujoco_data->time;
   if (pub_depth_freq_ > 0 && (sim_time - last_pub_depth_time_).toSec() < 1.0/pub_depth_freq_)
     return;
 
+  // render from fixedcamid=0
+  int fixedcamid=0;
   unsigned char* rgb = (unsigned char*)malloc(3*width*height);
   float* depth = (float*)malloc(width*height*sizeof(float));
   if( !rgb | !depth)
     ROS_ERROR("Could not allocate buffers");
+  int result = mj_vis_utils.renderOffscreen(rgb, depth, height, width, fixedcamid);
 
-  int result = mujoco_visualization_utils.renderOffscreen(rgb, depth, height, width);
+  // params needed for conversion to real depth.
+  float extent = mujoco_model->stat.extent;
+  float znear = mujoco_model->vis.map.znear * extent;
+  float zfar = mujoco_model->vis.map.zfar * extent;
 
-  // form the message
-  // going back to RGB for now. fuck this dumb shit.
-  sensor_msgs::Image output_image;
-  output_image.header.stamp = sim_time;
-  output_image.header.frame_id = "cam_1";
-  output_image.height = height;
-  output_image.width = width;
-  output_image.is_bigendian = false;
+  // create depth message
+  sensor_msgs::ImagePtr depth_msg( new sensor_msgs::Image );
+  depth_msg->header.stamp    = sim_time;
+  depth_msg->header.frame_id = "cam_1";
+  depth_msg->height          = height;
+  depth_msg->width           = width;
+  depth_msg->encoding        = enc::TYPE_32FC1;
+  depth_msg->step            = width * (enc::bitDepth(depth_msg->encoding) / 8);
+  depth_msg->data.resize(depth_msg->height * depth_msg->step);
+  float* depth_data = reinterpret_cast<float*>(&depth_msg->data[0]);
 
-  // rgb testing:
-  // output_image.encoding = "rgb8";
-  // output_image.step = width*3;
-  // for(int i=0; i<(3*width*height);i++)
-  // {
-  //   output_image.data.push_back(rgb[i]);
-  // }
-
-  // depth, attempted.
-  // this works in rviz.
-  // now, we need to make it work for depth_image_proc.
-  output_image.encoding = "mono8";
-  output_image.step= width*sizeof(int);
-
-  // this is for depth. fuck you Ben.
+  // fill the depth message.
+  // glReadPixels returns rows bottom to top, left to right.
+  // so reverse the buffer vertically, convert to depth in meters
   for(int i=0; i<(width*height);i++)
   {
-      // from gl docs, the readPixels returns pixels bottom to top, left to right.
-      // let's horizontally flip the buffer here.
-      // compute row and column index.
       int proper_row_number = std::floor( ((float)i) / ((float)width) );
       int proper_column_number = i - proper_row_number*width;
-
-      // compute the upside down row number
       int gl_row_number = height - proper_row_number;
-
-      // compute the index of the buffer that corresponds to pixel i
       int proper_idx = gl_row_number*width + proper_column_number;
 
-      // TODO: here, I need to convert from buffer value to depth (32-bit float in meters)
-      int depth_int = (int)(depth[proper_idx]*255);
-
-      // something is fucked here, these values don't look right.
-      // float real_depth = near / (1.0 - depth[proper_idx] * (1.0 - near / far));
-      output_image.data.push_back(depth_int);
-
+      // convert to real
+      float real_depth = znear / (1.0 - depth[proper_idx] * (1.0 - znear / zfar));
+      depth_data[i] = (float)real_depth;
   }
+
+  // ROS_INFO_STREAM("=======");
+  // ROS_INFO_STREAM("extent " << extent);
+  // ROS_INFO_STREAM("znear " << znear);
+  // ROS_INFO_STREAM("zfar " << zfar);
+  // ROS_INFO_STREAM("min_depth " << min_depth);
+  // ROS_INFO_STREAM("max_depth " << max_depth);
 
   // publish!
   last_pub_depth_time_ = sim_time;
-  pub_depth_.publish(output_image);
+  pub_depth_.publish(depth_msg);
 
 
   // grab parameters of the camera
   // TODO: these use default values, we ought to use the actual values
   // TODO: move this elsewhere.
-  // float extent = mujoco_model->stat.extent;
-  // float near = 0.01 * extent;
-  // float far = 50.0 * extent;
-  // float fovy = 45.0;
-  // float fovy_rad = fovy * 3.14159265 / 180.0;
-  // float cx = (float)width / 2.0;
-  // float cy = (float)height / 2.0;
-  // float fy = (float(height)/2.0) / tan(fovy_rad);
-  // float fx  = fy;
-  //
-  // // publish synchronized camera_info
-  // sensor_msgs::CameraInfo ci;
-  // ci.header.stamp = sim_time;
-  // ci.header.frame_id = "cam_1";
-  // ci.height = height;
-  // ci.width = width;
-  // ci.K[0] = fx;
-  // ci.K[1] = 0;
-  // ci.K[2] = cx;
-  // ci.K[3] = 0;
-  // ci.K[4] = fy;
-  // ci.K[5] = cy;
-  // ci.K[6] = 0;
-  // ci.K[7] = 0;
-  // ci.K[8] = 1;
-  //
-  // ci.R[0] = 1.0;
-  // ci.R[4] = 1.0;
-  // ci.R[8] = 1.0;
-  //
-  // for(int i=0; i<(9);i++)
-  // {
-  //     ci.P[i] = ci.K[i];
-  // }
-  //
-  // pub_cam_info_.publish(ci);
-  //
-  // // publish the camera transform
-  // static tf::TransformBroadcaster br;
-  //
-  // float cam_x = 1.0;
-  // float cam_y = 0.0;
-  // float cam_z = 1.0;
-  // float cam_roll = 0;
-  // float cam_pitch = 0.753;
-  // float cam_yaw = 1.57;
-  //
-  // tf::Transform transform;
-  // transform.setOrigin( tf::Vector3(cam_x, cam_y, cam_z) );
-  // tf::Quaternion q;
-  // q.setRPY(cam_roll, cam_pitch, cam_yaw);
-  // transform.setRotation(q);
-  // br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", "cam_1"));
+  float fovy = 45.0;
+  float fovy_rad = fovy * 3.14159265 / 180.0;
+  float cx = (float)width / 2.0;
+  float cy = (float)height / 2.0;
+  float fy = (float(height)/2.0) / tan(fovy_rad);
+  float fx = fy;
+
+  // publish synchronized camera_info
+  sensor_msgs::CameraInfo ci;
+  ci.header.stamp = sim_time;
+  ci.header.frame_id = "cam_1";
+  ci.height = height;
+  ci.width = width;
+
+  ci.K[0] = fx;
+  ci.K[1] = 0;
+  ci.K[2] = cx;
+  ci.K[3] = 0;
+  ci.K[4] = fy;
+  ci.K[5] = cy;
+  ci.K[6] = 0;
+  ci.K[7] = 0;
+  ci.K[8] = 1;
+
+  ci.R[0] = 1.0;
+  ci.R[4] = 1.0;
+  ci.R[8] = 1.0;
+
+  ci.P[0] = fx;
+  ci.P[1] = 0;
+  ci.P[2] = cx;
+  ci.P[3] = 0;
+  ci.P[4] = 0;
+  ci.P[5] = fy;
+  ci.P[6] = cy;
+  ci.P[7] = 0;
+  ci.P[8] = 0;
+  ci.P[9] = 0;
+  ci.P[10] = 1;
+  ci.P[11] = 0;
+
+  pub_cam_info_.publish(ci);
+
+  // TODO move this
+  float cam_x = 1.0;
+  float cam_y = 0.0;
+  float cam_z = 1.0;
+  float cam_roll = 0;
+  float cam_pitch = 0.753;
+  float cam_yaw = 1.57;
+
+  // publish the camera transform
+  static tf::TransformBroadcaster br;
+  tf::Transform transform;
+  transform.setOrigin( tf::Vector3(cam_x, cam_y, cam_z) );
+  tf::Quaternion q;
+  q.setRPY(cam_roll, cam_pitch, cam_yaw);
+  transform.setRotation(q);
+  br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "cam_1", "world"));
 }
 
 void MujocoRosControl::check_objects_in_scene()
@@ -597,7 +601,7 @@ int main(int argc, char** argv)
     glfwMakeContextCurrent(window);
 
     // initialize mujoco visualization functions
-    mujoco_visualization_utils.init(mujoco_ros_control.mujoco_model, mujoco_ros_control.mujoco_data, window);
+    mj_vis_utils.init(mujoco_ros_control.mujoco_model, mujoco_ros_control.mujoco_data, window);
 
     // spin
     ros::AsyncSpinner spinner(1);
@@ -615,10 +619,10 @@ int main(int argc, char** argv)
       {
         mujoco_ros_control.update();
       }
-      mujoco_visualization_utils.update(window);
+      mj_vis_utils.update(window);
     }
 
-    mujoco_visualization_utils.terminate();
+    mj_vis_utils.terminate();
 
     return 0;
 }

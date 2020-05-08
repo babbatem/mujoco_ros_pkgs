@@ -131,14 +131,14 @@ void MujocoVisualizationUtils::terminate()
 
 int MujocoVisualizationUtils::renderOffscreen(unsigned char *rgb,
                                               float* depth,
-                                              int height,
-                                              int width)
+                                              const int out_height,
+                                              const int out_width,
+                                              const int fixedcamid)
 {
-  // grab camera 0 in the model.
-  // todo: is this viewport proper?
+  // select the camera
   cam.type = mjCAMERA_FIXED;
-  cam.fixedcamid = 0;
-  mjrRect my_viewport = {0, 0, width, height};
+  cam.fixedcamid = fixedcamid;
+  mjrRect my_viewport = {0, 0, out_width, out_height};
 
   // setBuffer offscreen
   mjr_setBuffer(mjFB_OFFSCREEN, &con);
@@ -150,13 +150,12 @@ int MujocoVisualizationUtils::renderOffscreen(unsigned char *rgb,
   mjr_render(my_viewport, &scn, &con);
   mjr_readPixels(rgb, depth, my_viewport, &con);
 
-  // set cam back to default for rendering
+  // set cam back to default for rendering onscreen.
   // mjv_defaultCamera(&cam);
   cam.type = mjCAMERA_FREE;
   cam.fixedcamid = -1;
   mjr_setBuffer(mjFB_WINDOW, &con);
   return 0;
-
 }
 
 void MujocoVisualizationUtils::keyboard_callback(GLFWwindow* window, int key, int scancode, int act, int mods)

@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
   mujoco_ros_msgs
   roslint
   tf
+  cv_bridge
 )
 
 catkin_package(
@@ -35,6 +36,7 @@ catkin_package(
     joint_limits_interface
     urdf
     tf
+    cv_bridge
   INCLUDE_DIRS include
   LIBRARIES ${PROJECT_NAME} robot_hw_sim
 )
@@ -62,6 +64,19 @@ target_link_libraries(visualization_utils ${catkin_LIBRARIES})
 ## Declare a C++ library
 add_executable(mujoco_ros_control src/mujoco_ros_control.cpp)
 target_link_libraries(mujoco_ros_control
+    ${catkin_LIBRARIES}
+    glfw
+    ${LIB_MUJOCO}
+    robot_hw_sim
+    visualization_utils
+    GLEW
+    glut
+    X11
+    GL
+    GLU)
+
+add_executable(mujoco_ros_record_test src/record_test.cpp)
+target_link_libraries(mujoco_ros_record_test
     ${catkin_LIBRARIES}
     glfw
     ${LIB_MUJOCO}

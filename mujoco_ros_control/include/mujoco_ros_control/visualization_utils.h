@@ -44,7 +44,10 @@ public:
 
   void terminate();
 
-  int renderOffscreen(unsigned char *rgb, float* depth, int height, int width);
+  int renderOffscreen(unsigned char *rgb, float* depth,
+                      const int height,
+                      const int width,
+                      const int fixedcamid);
 
 private:
   MujocoVisualizationUtils(void)
