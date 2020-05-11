@@ -393,14 +393,18 @@ void MujocoRosControl::publish_depth_image()
   int result = mj_vis_utils.renderOffscreen(rgb, depth, height, width, fixedcamid);
 
   // params needed for conversion to real depth.
+  // TODO: abstract this.
   float extent = mujoco_model->stat.extent;
   float znear = mujoco_model->vis.map.znear * extent;
   float zfar = mujoco_model->vis.map.zfar * extent;
+  float fovy = mujoco_model->cam_fovy[0];
+
+  std::cout << "fovy " << fovy << "\n";
 
   // create depth message
   sensor_msgs::ImagePtr depth_msg( new sensor_msgs::Image );
   depth_msg->header.stamp    = sim_time;
-  depth_msg->header.frame_id = "cam_1";
+  depth_msg->header.frame_id = "cam_1_optical";
   depth_msg->height          = height;
   depth_msg->width           = width;
   depth_msg->encoding        = enc::TYPE_32FC1;
@@ -438,7 +442,7 @@ void MujocoRosControl::publish_depth_image()
   // grab parameters of the camera
   // TODO: these use default values, we ought to use the actual values
   // TODO: move this elsewhere.
-  float fovy = 45.0;
+  // float fovy = 45.0;
   float fovy_rad = fovy * 3.14159265 / 180.0;
   float cx = (float)width / 2.0;
   float cy = (float)height / 2.0;
@@ -503,7 +507,7 @@ void MujocoRosControl::publish_depth_image()
   // where GL computes them down the *negative* z-axis.
   // so, I don't want the actual camera pose;
   // I want to rotate it (about itself?!) such that that z is the opposite way.
-  // a better idea: put the pointcloud in optical frame, and publish optical_frame tf from cam_1 frame. 
+  // a better idea: put the pointcloud in optical frame, and publish optical_frame tf from cam_1 frame.
 
 
   // grab camera quat
@@ -517,7 +521,23 @@ void MujocoRosControl::publish_depth_image()
   tf::Quaternion q(qx, qy, qz, qw );
   q.normalize();
   transform.setRotation(q);
-  br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", "cam_1"));
+  br.sendTransform(tf::StampedTransform(transform,
+                                        ros::Time::now(),
+                                        "world",
+                                        "cam_1"));
+
+  // publish transform from cam_1 (rendering in mujoco/OpenGL convention)
+  // to cam_optical, as if rendering in ROS/OpenCV convention
+  tf::Transform transform_optical;
+  transform_optical.setOrigin( tf::Vector3(0, 0, 0) );
+  tf::Vector3 axis(1, 0 ,0);
+  float angle=3.14159265;
+  tf::Quaternion q_optical(axis, angle );
+  transform_optical.setRotation(q_optical);
+  br.sendTransform(tf::StampedTransform(transform_optical,
+                                        ros::Time::now(),
+                                        "cam_1",
+                                        "cam_1_optical"));
 
   // testing quaternions
   std::cout << "ROS: " << "\n";
