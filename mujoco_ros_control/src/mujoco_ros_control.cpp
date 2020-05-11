@@ -34,6 +34,9 @@ mujoco_ros_control::MujocoVisualizationUtils &mj_vis_utils =
     mujoco_ros_control::MujocoVisualizationUtils::getInstance();
 
 namespace enc = sensor_msgs::image_encodings;
+
+bool PUBLISH_DEPTH = false;
+
 namespace mujoco_ros_control
 {
 MujocoRosControl::MujocoRosControl()
@@ -274,8 +277,8 @@ void MujocoRosControl::update()
 
   publish_objects_in_scene();
 
-  // TODO: make this optional if we're in image land.
-  publish_depth_image();
+  if (PUBLISH_DEPTH)
+    publish_depth_image();
 }
 
 // get the URDF XML from the parameter server
