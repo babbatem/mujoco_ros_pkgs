@@ -373,10 +373,6 @@ void MujocoRosControl::publish_sim_time()
   pub_clock_.publish(ros_time_);
 }
 
-// alternatively:
-// def buffer_to_real(z, zzfar, zznear):
-//     return 2*zzfar*zznear / (zzfar + zznear - (zzfar - zznear)*(2*z -1))
-
 void MujocoRosControl::publish_depth_image()
 {
   // if it isn't time, exit
@@ -398,8 +394,6 @@ void MujocoRosControl::publish_depth_image()
   float znear = mujoco_model->vis.map.znear * extent;
   float zfar = mujoco_model->vis.map.zfar * extent;
   float fovy = mujoco_model->cam_fovy[0];
-
-  std::cout << "fovy " << fovy << "\n";
 
   // create depth message
   sensor_msgs::ImagePtr depth_msg( new sensor_msgs::Image );
@@ -427,22 +421,13 @@ void MujocoRosControl::publish_depth_image()
       depth_data[i] = (float)real_depth;
   }
 
-  // ROS_INFO_STREAM("=======");
-  // ROS_INFO_STREAM("extent " << extent);
-  // ROS_INFO_STREAM("znear " << znear);
-  // ROS_INFO_STREAM("zfar " << zfar);
-  // ROS_INFO_STREAM("min_depth " << min_depth);
-  // ROS_INFO_STREAM("max_depth " << max_depth);
-
   // publish!
   last_pub_depth_time_ = sim_time;
   pub_depth_.publish(depth_msg);
 
-
   // grab parameters of the camera
   // TODO: these use default values, we ought to use the actual values
   // TODO: move this elsewhere.
-  // float fovy = 45.0;
   float fovy_rad = fovy * 3.14159265 / 180.0;
   float cx = (float)width / 2.0;
   float cy = (float)height / 2.0;
@@ -485,39 +470,22 @@ void MujocoRosControl::publish_depth_image()
 
   pub_cam_info_.publish(ci);
 
-  // TODO move this
-  float cam_x = 1.0;
-  float cam_y = 0.0;
-  float cam_z = 1.0;
-  float cam_roll = 0;
-  float cam_pitch = 0.753;
-  float cam_yaw = 1.57;
+  // get camera pose from mujoco.
+  int cam_id = mj_name2id(mujoco_model, mjOBJ_BODY, "cam_1_body");
+  int start_idx_pos = cam_id * 3;
+  int start_idx_quat =  cam_id * 4;
+  float cam_x = mujoco_data->xpos[start_idx_pos + 0];
+  float cam_y = mujoco_data->xpos[start_idx_pos + 1];
+  float cam_z = mujoco_data->xpos[start_idx_pos + 2];
+  float qw = mujoco_data->xquat[start_idx_quat + 0];
+  float qx = mujoco_data->xquat[start_idx_quat + 1];
+  float qy = mujoco_data->xquat[start_idx_quat + 2];
+  float qz = mujoco_data->xquat[start_idx_quat + 3];
 
   // publish the camera transform
   static tf::TransformBroadcaster br;
   tf::Transform transform;
   transform.setOrigin( tf::Vector3(cam_x, cam_y, cam_z) );
-
-  // why isn't this working?
-  // mj_name2id(const mjModel* m, int type, const char* name)
-  // int start_idx = mj_name2id(mujoco_model, 0, "cam_1_body") * 4;
-
-  // alright kiddo, here's the shitty news
-  // the convention depth_image_proc uses is: points down the *positive* z-axis.
-  // where GL computes them down the *negative* z-axis.
-  // so, I don't want the actual camera pose;
-  // I want to rotate it (about itself?!) such that that z is the opposite way.
-  // a better idea: put the pointcloud in optical frame, and publish optical_frame tf from cam_1 frame.
-
-
-  // grab camera quat
-  int start_idx = (mujoco_model->nbody - 1) * 4;
-  std::cout << "=========================" << "\n";
-  std::cout << start_idx << "\n";
-  float qw = mujoco_data->xquat[start_idx + 0];
-  float qx = mujoco_data->xquat[start_idx + 1];
-  float qy = mujoco_data->xquat[start_idx + 2];
-  float qz = mujoco_data->xquat[start_idx + 3];
   tf::Quaternion q(qx, qy, qz, qw );
   q.normalize();
   transform.setRotation(q);
@@ -538,20 +506,6 @@ void MujocoRosControl::publish_depth_image()
                                         ros::Time::now(),
                                         "cam_1",
                                         "cam_1_optical"));
-
-  // testing quaternions
-  std::cout << "ROS: " << "\n";
-  std::cout << q[0] << "\n";
-  std::cout << q[1] << "\n";
-  std::cout << q[2] << "\n";
-  std::cout << q[3] << "\n";
-
-  // int start_idx = (mujoco_model->nbody - 1) * 4;
-  std::cout << "MuJoCo: " << "\n";
-  std::cout << mujoco_data->xquat[start_idx + 0] << "\n";
-  std::cout << mujoco_data->xquat[start_idx + 1] << "\n";
-  std::cout << mujoco_data->xquat[start_idx + 2] << "\n";
-  std::cout << mujoco_data->xquat[start_idx + 3] << "\n";
 }
 
 void MujocoRosControl::check_objects_in_scene()
