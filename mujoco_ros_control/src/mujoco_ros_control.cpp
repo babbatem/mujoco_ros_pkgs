@@ -446,7 +446,7 @@ void MujocoRosControl::publish_depth_image()
   float fovy_rad = fovy * 3.14159265 / 180.0;
   float cx = (float)width / 2.0;
   float cy = (float)height / 2.0;
-  float fy = (float(height)/2.0) / tan(fovy_rad);
+  float fy = (float(height)/2.0) / tan(fovy_rad / 2.0f);
   float fx = fy;
 
   // publish synchronized camera_info
