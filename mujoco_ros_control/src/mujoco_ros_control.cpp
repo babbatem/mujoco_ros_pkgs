@@ -27,8 +27,6 @@
 #include <vector>
 #include <map>
 #include <algorithm>
-#include <math.h>
-#include <tf/transform_broadcaster.h>
 
 mujoco_ros_control::MujocoVisualizationUtils &mj_vis_utils =
     mujoco_ros_control::MujocoVisualizationUtils::getInstance();
@@ -429,7 +427,6 @@ void MujocoRosControl::publish_depth_image()
   pub_depth_.publish(depth_msg);
 
   // grab parameters of the camera
-  // TODO: these use default values, we ought to use the actual values
   // TODO: move this elsewhere.
   float fovy_rad = fovy * 3.14159265 / 180.0;
   float cx = (float)width / 2.0;
@@ -474,6 +471,7 @@ void MujocoRosControl::publish_depth_image()
   pub_cam_info_.publish(ci);
 
   // get camera pose from mujoco.
+  // TODO: param with camera number
   int cam_id = mj_name2id(mujoco_model, mjOBJ_BODY, "cam_1_body");
   int start_idx_pos = cam_id * 3;
   int start_idx_quat =  cam_id * 4;

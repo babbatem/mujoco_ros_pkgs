@@ -41,6 +41,7 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <math.h>
 
 // ros_control
 #include <mujoco_ros_control/robot_hw_sim.h>
@@ -53,6 +54,7 @@
 #include "sensor_msgs/Image.h"
 #include "sensor_msgs/CameraInfo.h"
 #include "sensor_msgs/image_encodings.h"
+#include <tf/transform_broadcaster.h>
 
 #include <controller_manager/controller_manager.h>
 #include <transmission_interface/transmission_parser.h>
