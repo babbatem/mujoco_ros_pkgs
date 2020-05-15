@@ -24,6 +24,7 @@
 #include <mujoco_ros_control/visualization_utils.h>
 #include <urdf/model.h>
 #include <string>
+#include <cstring>
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -33,7 +34,7 @@ mujoco_ros_control::MujocoVisualizationUtils &mj_vis_utils =
 
 namespace enc = sensor_msgs::image_encodings;
 
-bool PUBLISH_DEPTH = false;
+bool PUBLISH_DEPTH = true;
 
 namespace mujoco_ros_control
 {
@@ -77,7 +78,8 @@ bool MujocoRosControl::init(ros::NodeHandle &nodehandle)
     pub_clock_ = nodehandle.advertise<rosgraph_msgs::Clock>("/clock", 10);
 
     // depth_pub_ definition
-    // TODO: topic names from file.
+    // TODO: multiple of these, one per camera.
+    // each camera should have: depth publisher, info publisher, fovy, name?
     pub_depth_ = nodehandle.advertise<sensor_msgs::Image>("/depth", 10);
     pub_cam_info_ = nodehandle.advertise<sensor_msgs::CameraInfo>("/cam_1_info", 10);
 
@@ -276,7 +278,15 @@ void MujocoRosControl::update()
   publish_objects_in_scene();
 
   if (PUBLISH_DEPTH)
-    publish_depth_image();
+  {
+    int dev_cam_num = 1;
+    publish_depth_image(dev_cam_num);
+    // // TODO: loop over cameras.
+    // for(int i=0; i<(2);i++)
+    // {
+    //   publish_depth_image(i);
+    // }
+  }
 }
 
 // get the URDF XML from the parameter server
@@ -374,15 +384,14 @@ void MujocoRosControl::publish_sim_time()
   pub_clock_.publish(ros_time_);
 }
 
-void MujocoRosControl::publish_depth_image()
+void MujocoRosControl::publish_depth_image(const int& fixedcamid)
 {
   // if it isn't time, exit
   ros::Time sim_time = (ros::Time)mujoco_data->time;
   if (pub_depth_freq_ > 0 && (sim_time - last_pub_depth_time_).toSec() < 1.0/pub_depth_freq_)
     return;
 
-  // render from fixedcamid=0
-  int fixedcamid=0;
+  // render from cam_fixedcamid
   unsigned char* rgb = (unsigned char*)malloc(3*width*height);
   float* depth = (float*)malloc(width*height*sizeof(float));
   if( !rgb | !depth)
@@ -394,12 +403,15 @@ void MujocoRosControl::publish_depth_image()
   float extent = mujoco_model->stat.extent;
   float znear = mujoco_model->vis.map.znear * extent;
   float zfar = mujoco_model->vis.map.zfar * extent;
-  float fovy = mujoco_model->cam_fovy[0];
+
+
+  // TODO: I THINK this is right...
+  float fovy = mujoco_model->cam_fovy[fixedcamid];
 
   // create depth message
   sensor_msgs::ImagePtr depth_msg( new sensor_msgs::Image );
   depth_msg->header.stamp    = sim_time;
-  depth_msg->header.frame_id = "cam_1_optical";
+  depth_msg->header.frame_id = "cam_" + std::to_string(fixedcamid) + "_optical";
   depth_msg->height          = height;
   depth_msg->width           = width;
   depth_msg->encoding        = enc::TYPE_32FC1;
@@ -437,10 +449,11 @@ void MujocoRosControl::publish_depth_image()
   // publish synchronized camera_info
   sensor_msgs::CameraInfo ci;
   ci.header.stamp = sim_time;
-  ci.header.frame_id = "cam_1";
+  ci.header.frame_id = "cam_" + std::to_string(fixedcamid);
   ci.height = height;
   ci.width = width;
 
+  // TODO: map from camera data (either a deque or a map?)
   ci.K[0] = fx;
   ci.K[1] = 0;
   ci.K[2] = cx;
@@ -472,9 +485,11 @@ void MujocoRosControl::publish_depth_image()
 
   // get camera pose from mujoco.
   // TODO: param with camera number
-  int cam_id = mj_name2id(mujoco_model, mjOBJ_BODY, "cam_1_body");
-  int start_idx_pos = cam_id * 3;
-  int start_idx_quat =  cam_id * 4;
+  std:: string body_name = "cam_" + std::to_string(fixedcamid) + "_body";
+  int mj_cam_id = mj_name2id(mujoco_model, mjOBJ_BODY, body_name.c_str());
+
+  int start_idx_pos = mj_cam_id * 3;
+  int start_idx_quat =  mj_cam_id * 4;
   float cam_x = mujoco_data->xpos[start_idx_pos + 0];
   float cam_y = mujoco_data->xpos[start_idx_pos + 1];
   float cam_z = mujoco_data->xpos[start_idx_pos + 2];
@@ -493,7 +508,7 @@ void MujocoRosControl::publish_depth_image()
   br.sendTransform(tf::StampedTransform(transform,
                                         ros::Time::now(),
                                         "world",
-                                        "cam_1"));
+                                        "cam_" + std::to_string(fixedcamid)));
 
   // publish transform from cam_1 (rendering in mujoco/OpenGL convention)
   // to cam_optical, as if rendering in ROS/OpenCV convention
@@ -505,8 +520,8 @@ void MujocoRosControl::publish_depth_image()
   transform_optical.setRotation(q_optical);
   br.sendTransform(tf::StampedTransform(transform_optical,
                                         ros::Time::now(),
-                                        "cam_1",
-                                        "cam_1_optical"));
+                                        "cam_" + std::to_string(fixedcamid),
+                                        "cam_" + std::to_string(fixedcamid) + "_optical"));
 }
 
 void MujocoRosControl::check_objects_in_scene()

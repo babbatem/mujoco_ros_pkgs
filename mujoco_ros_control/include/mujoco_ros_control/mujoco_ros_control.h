@@ -116,7 +116,7 @@ protected:
   void publish_objects_in_scene();
 
   // publish depth image
-  void publish_depth_image();
+  void publish_depth_image(const int& fixedcamid);
 
   // transform type id to type name
   std::string geom_type_to_string(int geom_id);
