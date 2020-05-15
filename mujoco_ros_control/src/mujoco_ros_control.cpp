@@ -34,8 +34,6 @@ mujoco_ros_control::MujocoVisualizationUtils &mj_vis_utils =
 
 namespace enc = sensor_msgs::image_encodings;
 
-bool PUBLISH_DEPTH = true;
-
 namespace mujoco_ros_control
 {
 MujocoRosControl::MujocoRosControl()
@@ -80,8 +78,11 @@ bool MujocoRosControl::init(ros::NodeHandle &nodehandle)
     // depth_pub_ definition
     // TODO: multiple of these, one per camera.
     // each camera should have: depth publisher, info publisher, fovy, name?
-    pub_depth_ = nodehandle.advertise<sensor_msgs::Image>("/depth", 10);
-    pub_cam_info_ = nodehandle.advertise<sensor_msgs::CameraInfo>("/cam_1_info", 10);
+    for(int i=0; i<2; i++)
+    {
+      pub_depth_map_[i] = nodehandle.advertise<sensor_msgs::Image>("/depth" + std::to_string(i), 10);
+      pub_cam_info_map_[i] = nodehandle.advertise<sensor_msgs::CameraInfo>("/cam_" + std::to_string(i) + "_info", 10);
+    }
 
     // create robot node handle
     robot_node_handle = ros::NodeHandle("/");
@@ -277,15 +278,14 @@ void MujocoRosControl::update()
 
   publish_objects_in_scene();
 
-  if (PUBLISH_DEPTH)
+  // publish depth image if it's appropriate
+  if (pub_depth_freq_ > 0 && (sim_time - last_pub_depth_time_).toSec() >= 1.0/pub_depth_freq_)
   {
-    int dev_cam_num = 1;
-    publish_depth_image(dev_cam_num);
-    // // TODO: loop over cameras.
-    // for(int i=0; i<(2);i++)
-    // {
-    //   publish_depth_image(i);
-    // }
+    for(int i=0; i<(n_cams);i++)
+    {
+      publish_depth_image(i);
+    }
+    last_pub_depth_time_ = sim_time;
   }
 }
 
@@ -386,10 +386,6 @@ void MujocoRosControl::publish_sim_time()
 
 void MujocoRosControl::publish_depth_image(const int& fixedcamid)
 {
-  // if it isn't time, exit
-  ros::Time sim_time = (ros::Time)mujoco_data->time;
-  if (pub_depth_freq_ > 0 && (sim_time - last_pub_depth_time_).toSec() < 1.0/pub_depth_freq_)
-    return;
 
   // render from cam_fixedcamid
   unsigned char* rgb = (unsigned char*)malloc(3*width*height);
@@ -409,6 +405,7 @@ void MujocoRosControl::publish_depth_image(const int& fixedcamid)
   float fovy = mujoco_model->cam_fovy[fixedcamid];
 
   // create depth message
+  ros::Time sim_time = (ros::Time)mujoco_data->time;
   sensor_msgs::ImagePtr depth_msg( new sensor_msgs::Image );
   depth_msg->header.stamp    = sim_time;
   depth_msg->header.frame_id = "cam_" + std::to_string(fixedcamid) + "_optical";
@@ -435,8 +432,7 @@ void MujocoRosControl::publish_depth_image(const int& fixedcamid)
   }
 
   // publish!
-  last_pub_depth_time_ = sim_time;
-  pub_depth_.publish(depth_msg);
+  pub_depth_map_[fixedcamid].publish(depth_msg);
 
   // grab parameters of the camera
   // TODO: move this elsewhere.
@@ -481,7 +477,7 @@ void MujocoRosControl::publish_depth_image(const int& fixedcamid)
   ci.P[10] = 1;
   ci.P[11] = 0;
 
-  pub_cam_info_.publish(ci);
+  pub_cam_info_map_[fixedcamid].publish(ci);
 
   // get camera pose from mujoco.
   // TODO: param with camera number

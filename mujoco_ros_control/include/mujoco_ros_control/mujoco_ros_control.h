@@ -162,8 +162,10 @@ protected:
   ros::Publisher objects_in_scene_publisher = robot_node_handle.advertise<mujoco_ros_msgs::ModelStates>
                                                                          ("/mujoco/model_states", 1000);
   // depth image publishing
-  ros::Publisher pub_depth_;
-  ros::Publisher pub_cam_info_;
+  int n_cams=2;
+  std::map<int, ros::Publisher> pub_depth_map_;
+  std::map<int, ros::Publisher> pub_cam_info_map_;
+
   ros::Time last_pub_depth_time_;
   float pub_depth_freq_=30.0;
   int height=108;
