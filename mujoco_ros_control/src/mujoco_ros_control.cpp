@@ -16,6 +16,11 @@
 * @file   mujoco_ros_control.cpp
 * @author Giuseppe Barbieri <giuseppe@shadowrobot.com>
 * @brief  Hardware interface for simulated robot in Mujoco
+*
+* hey all you cool cats and kittens
+* this package was modified by Ben Abbatematteo (abba@brown.edu)
+* during the end times (May 2020) 
+*
 **/
 
 
@@ -192,8 +197,8 @@ bool MujocoRosControl::init(ros::NodeHandle &nodehandle)
     n_cams=mujoco_model->ncam;
     for(int i=0; i<n_cams; i++)
     {
-      pub_depth_map_[i] = nodehandle.advertise<sensor_msgs::Image>("/depth" + std::to_string(i), 10);
-      pub_cam_info_map_[i] = nodehandle.advertise<sensor_msgs::CameraInfo>("/cam_" + std::to_string(i) + "_info", 10);
+      pub_depth_map_[i] = nodehandle.advertise<sensor_msgs::Image>("/cam_" + std::to_string(i) + "/depth", 10);
+      pub_cam_info_map_[i] = nodehandle.advertise<sensor_msgs::CameraInfo>("/cam_" + std::to_string(i) + "/info", 10);
     }
     return true;
 }
