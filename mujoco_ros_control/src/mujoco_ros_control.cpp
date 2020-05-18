@@ -75,15 +75,6 @@ bool MujocoRosControl::init(ros::NodeHandle &nodehandle)
     // publish clock for simulated time
     pub_clock_ = nodehandle.advertise<rosgraph_msgs::Clock>("/clock", 10);
 
-    // depth_pub_ definition
-    // TODO: multiple of these, one per camera.
-    // each camera should have: depth publisher, info publisher, fovy, name?
-    for(int i=0; i<2; i++)
-    {
-      pub_depth_map_[i] = nodehandle.advertise<sensor_msgs::Image>("/depth" + std::to_string(i), 10);
-      pub_cam_info_map_[i] = nodehandle.advertise<sensor_msgs::CameraInfo>("/cam_" + std::to_string(i) + "_info", 10);
-    }
-
     // create robot node handle
     robot_node_handle = ros::NodeHandle("/");
 
@@ -196,6 +187,14 @@ bool MujocoRosControl::init(ros::NodeHandle &nodehandle)
 
     // set up the initial simulation environment
     setup_sim_environment();
+
+    // depth_pub_ definition for each camera
+    n_cams=mujoco_model->ncam;
+    for(int i=0; i<n_cams; i++)
+    {
+      pub_depth_map_[i] = nodehandle.advertise<sensor_msgs::Image>("/depth" + std::to_string(i), 10);
+      pub_cam_info_map_[i] = nodehandle.advertise<sensor_msgs::CameraInfo>("/cam_" + std::to_string(i) + "_info", 10);
+    }
     return true;
 }
 
