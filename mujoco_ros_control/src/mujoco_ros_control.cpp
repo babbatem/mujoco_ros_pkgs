@@ -19,7 +19,7 @@
 *
 * hey all you cool cats and kittens
 * this package was modified by Ben Abbatematteo (abba@brown.edu)
-* during the end times (May 2020) 
+* during the end times (May 2020)
 *
 **/
 
@@ -198,7 +198,7 @@ bool MujocoRosControl::init(ros::NodeHandle &nodehandle)
     for(int i=0; i<n_cams; i++)
     {
       pub_depth_map_[i] = nodehandle.advertise<sensor_msgs::Image>("/cam_" + std::to_string(i) + "/depth", 10);
-      pub_cam_info_map_[i] = nodehandle.advertise<sensor_msgs::CameraInfo>("/cam_" + std::to_string(i) + "/info", 10);
+      pub_cam_info_map_[i] = nodehandle.advertise<sensor_msgs::CameraInfo>("/cam_" + std::to_string(i) + "/camera_info", 10);
     }
     return true;
 }
@@ -435,9 +435,6 @@ void MujocoRosControl::publish_depth_image(const int& fixedcamid)
       depth_data[i] = (float)real_depth;
   }
 
-  // publish!
-  pub_depth_map_[fixedcamid].publish(depth_msg);
-
   // grab parameters of the camera
   // TODO: move this elsewhere.
   float fovy_rad = fovy * 3.14159265 / 180.0;
@@ -481,6 +478,8 @@ void MujocoRosControl::publish_depth_image(const int& fixedcamid)
   ci.P[10] = 1;
   ci.P[11] = 0;
 
+  // publish!
+  pub_depth_map_[fixedcamid].publish(depth_msg);
   pub_cam_info_map_[fixedcamid].publish(ci);
 
   // get camera pose from mujoco.
