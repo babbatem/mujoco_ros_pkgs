@@ -482,6 +482,10 @@ void MujocoRosControl::publish_depth_image(const int& fixedcamid)
   pub_depth_map_[fixedcamid].publish(depth_msg);
   pub_cam_info_map_[fixedcamid].publish(ci);
 
+  // free
+  free(rgb);
+  free(depth);
+
   // get camera pose from mujoco.
   // TODO: param with camera number
   std:: string body_name = "cam_" + std::to_string(fixedcamid) + "_body";
